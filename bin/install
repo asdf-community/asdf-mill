@@ -1,0 +1,58 @@
+#!/usr/bin/env bash
+
+installer() {
+  local install_type=$1
+  local version=$2
+  local install_path=$3
+
+  local tmp_download_dir=$(mktemp -d -t mill_XXXXXXX)
+
+  if [ "version" != "${install_type}" ]; then
+    echo "The asdf-mill plugin only supports intalling official"
+    echo "binary releases as built by the mill team."
+    echo "If you want to install another version from source, see:"
+    echo "https://github.com/lihaoyi/mill/"
+    exit 1
+  fi
+
+  # running this in a subshell
+  # we don't want to disturb current working dir
+  (
+    set -e
+
+    local archive_file
+    archive_file=$(downloaded_file_path $version $tmp_download_dir)
+    local archive_url
+    archive_url=$(download_url $version)
+    download $archive_file $archive_url || fail "could not download mill archive"
+    mkdir -p $install_path/bin
+    mv $archive_file $install_path/bin/mill
+    chmod +x $install_path/bin/mill
+
+  ) || (rm -rf $install_path $tmp_download_dir; exit 1)
+}
+
+fail() {
+    echo "asdf-mill error:" $*
+    exit 1
+}
+
+download() {
+  local download_path=$1
+  local download_url=$2
+  curl -Lo $download_path -C - $download_url
+}
+
+downloaded_file_path() {
+  local version=$1
+  local tmp_download_dir=$2
+  local pkg_name="mill-${version}"
+  echo "$tmp_download_dir/$pkg_name"
+}
+
+download_url() {
+  local version=$1
+  echo "https://github.com/lihaoyi/mill/releases/download/${version}/${version}"
+}
+
+installer $ASDF_INSTALL_TYPE $ASDF_INSTALL_VERSION $ASDF_INSTALL_PATH

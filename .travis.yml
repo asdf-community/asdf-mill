@@ -1,0 +1,9 @@
+language: c
+script:
+  - asdf plugin-test mill https://github.com/vic/asdf-mill.git "mill version"
+before_script:
+  - git clone https://github.com/asdf-vm/asdf.git
+  - . asdf/asdf.sh
+os:
+  - linux
+  - osx
