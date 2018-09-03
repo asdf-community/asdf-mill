@@ -5,15 +5,54 @@ installer() {
   local version=$2
   local install_path=$3
 
-  local tmp_download_dir=$(mktemp -d -t mill_XXXXXXX)
-
-  if [ "version" != "${install_type}" ]; then
-    echo "The asdf-mill plugin only supports intalling official"
-    echo "binary releases as built by the mill team."
-    echo "If you want to install another version from source, see:"
-    echo "https://github.com/lihaoyi/mill/"
-    exit 1
+  if [ "version" == "${install_type}" ]; then
+    install_version $version $install_path
+  else
+    install_ref $version $install_path
   fi
+}
+
+install_ref() {
+  local version=$1
+  local install_path=$2
+
+  local tmp_dir
+  tmp_dir=$(mktemp -d -t mill_XXXXXXX)
+
+  local repo_uri
+  repo_uri=${MILL_GIT_REPO:-"https://github.com/lihaoyi/mill"}
+
+  local stable_version
+  stable_version=${MILL_STABLE_VERSION:-"0.2.7"}
+
+  # running this in a subshell
+  # we don't want to disturb current working dir
+  (
+      set -e
+
+      mkdir -p $tmp_dir/stable
+      install_version $stable_version $tmp_dir/stable
+
+      git clone --depth 1 --branch $version $repo_uri $tmp_dir/checkout
+      cd $tmp_dir/checkout
+
+      $tmp_dir/stable/bin/mill -i release
+
+      mkdir -p $install_path/bin
+      (echo "#!/usr/bin/env sh" && cat out/release/dest/mill) > $install_path/bin/mill
+      chmod +x $install_path/bin/mill
+
+      rm -rf $tmp_dir
+
+  ) || (rm -rf $install_path $tmp_dir; exit 1)
+}
+
+install_version() {
+  local version=$1
+  local install_path=$2
+
+  local tmp_download_dir
+  tmp_download_dir=$(mktemp -d -t mill_XXXXXXX)
 
   # running this in a subshell
   # we don't want to disturb current working dir
@@ -26,10 +65,14 @@ installer() {
     archive_url=$(download_url $version)
     download $archive_file $archive_url || fail "could not download mill archive"
     mkdir -p $install_path/bin
-    mv $archive_file $install_path/bin/mill
+    (echo "#!/usr/bin/env sh" && cat $archive_file) > $install_path/bin/mill
     chmod +x $install_path/bin/mill
 
+    rm -rf $tmp_download_dir
+
   ) || (rm -rf $install_path $tmp_download_dir; exit 1)
+
+  echo $tmp_download_dir
 }
 
 fail() {
