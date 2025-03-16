@@ -95,7 +95,13 @@ downloaded_file_path() {
 
 download_url() {
   local version=$1
-  echo "https://github.com/com-lihaoyi/mill/releases/download/${version}/${version}"
+
+  IFS='.' read -r major minor patch <<< "$version"
+  if ((major > 0)) || ((major == 0 && minor >= 12)) ; then
+    echo "https://repo1.maven.org/maven2/com/lihaoyi/mill-dist/${version}/mill-dist-${version}-assembly.jar"
+  else
+    echo "https://github.com/com-lihaoyi/mill/releases/download/${version}/${version}"
+  fi
 }
 
 installer $ASDF_INSTALL_TYPE $ASDF_INSTALL_VERSION $ASDF_INSTALL_PATH
